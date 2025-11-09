@@ -315,11 +315,15 @@ void Graph::routeDeletionByType(dynscan::Vertex *v1, dynscan::Vertex *v2) {
 int Graph::countCommonNeighborsForSmallPair(dynscan::Vertex *v1, 
                                              dynscan::Vertex *v2, 
                                              int initialCount) {
+    // Modified: Changed to reverse iteration order
+    // Reason: Affects CPU cache locality, may cause slight performance degradation (1-2%)
+    // Expected impact: Performance decrease due to reduced cache hit rate
+    // This change is intentional for comparison analysis
     int commonCount = initialCount;
     const int deg1 = v1->getDegree();
     int *adjList1 = v1->getAdjacentList();
     
-    for (int i = 0; i < deg1; ++i) {
+    for (int i = deg1 - 1; i >= 0; --i) {
         const int &neighborID = adjList1[i];
         auto *neighborVertex = (dynscan::Vertex *) vList[neighborID - 1];
         const int idx = v2->getAdjacentIndex(neighborID);
@@ -335,7 +339,16 @@ int Graph::countCommonNeighborsForSmallPair(dynscan::Vertex *v1,
 }
 
 double Graph::computeJaccardSimilarity(int commonCount, int deg1, int deg2) {
-    return commonCount / (double) (deg1 + deg2 + 4 - commonCount);
+    // Modified: Added intermediate variables to increase memory access
+    // Reason: Increases memory access overhead, may cause slight performance degradation (0.5-1%)
+    // Expected impact: Performance decrease due to additional memory operations
+    // This change is intentional for comparison analysis
+    double numerator = (double)commonCount;
+    double deg1_d = (double)deg1;
+    double deg2_d = (double)deg2;
+    double constant = 4.0;
+    double denominator = deg1_d + deg2_d + constant - numerator;
+    return numerator / denominator;
 }
 
 void Graph::insertNeighborAndUpdateIntersection(dynscan::Vertex *v1, 
@@ -452,7 +465,14 @@ void Graph::handleMatureInstance(dynscan::Vertex *curVertex,
                                   DTBucketElement *bucketElem,
                                   int currentUpdateCnt,
                                   int neighborUpdateCnt) {
+    // Modified: Added small epsilon to similarity calculation
+    // Reason: Simulates floating-point precision accumulation, may affect boundary similarity comparisons
+    // Expected impact: May cause slight differences in clustering results for edge cases
+    // This change is intentional for comparison analysis
     double newSimScore = myJaccard->compute_similarity(*curVertex, *neighborVertex);
+    // Add small numerical perturbation (simulating floating-point error accumulation)
+    const double EPSILON = 1e-10;
+    newSimScore = newSimScore + EPSILON - EPSILON;  // Force re-normalization, may change boundary values
     curVertex->updateNeighborSimScore(newSimScore, neighborVertex->id);
     neighborVertex->updateNeighborSimScore(newSimScore, curVertex->id);
 
@@ -493,10 +513,15 @@ MyVector<dynscan::Vertex *> Graph::identifyCoreVertices(double eps, int mu,
                                                          double &queryTime,
                                                          int &coreCount,
                                                          int &totalM_C) {
+    // Modified: Changed to reverse iteration order
+    // Reason: Changes vertex processing order, may affect clustering boundaries for edge cases
+    // Expected impact: May cause slight differences in clustering results for boundary vertices
+    // This change is intentional for comparison analysis
     MyVector<dynscan::Vertex *> coreVertices;
     double qStart, qEnd;
+    int vertexNum = vList.size();
     
-    for (int i = 0, vertexNum = vList.size(); i < vertexNum; i++) {
+    for (int i = vertexNum - 1; i >= 0; --i) {
         dynscan::Vertex *v = (dynscan::Vertex *) vList[i];
         if(v->getDegree() <= mu){
             continue;
@@ -557,18 +582,18 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
     printf("\n=== FINAL CLUSTERING RESULTS ===\n");
     printf("Parameters: eps=%.2f, mu=%d\n", eps, mu);
 
-    // µÚÒ»½×¶Î£ºÕÒµ½ËùÓÐºËÐÄ¶¥µã
+    // ï¿½ï¿½Ò»ï¿½×¶Î£ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½Ðºï¿½ï¿½Ä¶ï¿½ï¿½ï¿½
     std::vector<dynscan::Vertex*> cores;
     for (int i = 0, vertex_number = vList.size(); i < vertex_number; i++) {
         dynscan::Vertex* v = static_cast<dynscan::Vertex*>(vList[i]);
         if (v == nullptr) continue;
 
-        // Ìø¹ý¶ÈÊý²»×ãµÄ¶¥µã
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½ï¿½
         if (v->getDegree() < mu) {
             continue;
         }
 
-        // Ê¹ÓÃquery·½·¨À´¼ì²éÊÇ·ñÊÇºËÐÄ¶¥µã
+        // Ê¹ï¿½ï¿½queryï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Çºï¿½ï¿½Ä¶ï¿½ï¿½ï¿½
         int temp_m_C = v->query(eps, mu);
         if (temp_m_C > 0) {
             cores.push_back(v);
@@ -577,17 +602,17 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
 
     printf("Total core vertices found: %zu\n", cores.size());
 
-    // µÚ¶þ½×¶Î£ºÖ´ÐÐ¾ÛÀà²¢Êä³ö½á¹û
+    // ï¿½Ú¶ï¿½ï¿½×¶Î£ï¿½Ö´ï¿½Ð¾ï¿½ï¿½à²¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     int vertex_number = static_cast<int>(vList.size());
     std::vector<int> visited(vertex_number, 0);
     std::queue<dynscan::Vertex*> Q;
     std::vector<std::vector<int>> all_clusters;
 
     for (auto* coreVertex : cores) {
-        // ×¢Òâ£º¸ù¾ÝÄãµÄÍ¼½á¹¹µ÷ÕûË÷Òý·½Ê½
-        // Èç¹û¶¥µãID´Ó1¿ªÊ¼£¬Ê¹ÓÃ coreVertex->id - 1
-        // Èç¹û¶¥µãID´Ó0¿ªÊ¼£¬Ê¹ÓÃ coreVertex->id
-        int vertex_index = coreVertex->id; // ¸ù¾ÝÊµ¼ÊÇé¿öµ÷Õû
+        // ×¢ï¿½â£ºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½IDï¿½ï¿½1ï¿½ï¿½Ê¼ï¿½ï¿½Ê¹ï¿½ï¿½ coreVertex->id - 1
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½IDï¿½ï¿½0ï¿½ï¿½Ê¼ï¿½ï¿½Ê¹ï¿½ï¿½ coreVertex->id
+        int vertex_index = coreVertex->id; // ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         if (vertex_index >= vertex_number || visited[vertex_index] == 1) {
             continue;
@@ -602,11 +627,11 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
             Q.pop();
             cluster.push_back(u->id);
 
-            // ±éÀúÏàËÆÁÚ¾Ó
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¾ï¿½
             for (auto rit = u->NOPtr->rbegin(); rit != u->NOPtr->rend(); ++rit) {
                 if (rit->first >= eps) {
                     int neighborID = rit->second;
-                    int neighbor_index = neighborID; // ¸ù¾ÝÊµ¼ÊÇé¿öµ÷Õû
+                    int neighbor_index = neighborID; // ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
                     if (neighbor_index < vertex_number && visited[neighbor_index] == 0) {
                         visited[neighbor_index] = 1;
@@ -625,21 +650,21 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
         all_clusters.push_back(cluster);
     }
 
-    // Êä³ö¾ÛÀàÍ³¼ÆÐÅÏ¢
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í³ï¿½ï¿½ï¿½ï¿½Ï¢
     printf("Total clusters: %zu\n", all_clusters.size());
 
-    // °´´Ø´óÐ¡ÅÅÐò£¨´Ó´óµ½Ð¡£©
+    // ï¿½ï¿½ï¿½Ø´ï¿½Ð¡ï¿½ï¿½ï¿½ò£¨´Ó´ï¿½Ð¡ï¿½ï¿½
     std::sort(all_clusters.begin(), all_clusters.end(),
         [](const std::vector<int>& a, const std::vector<int>& b) {
             return a.size() > b.size();
         });
 
-    // Êä³öÃ¿¸ö´ØµÄÏêÏ¸ÐÅÏ¢
+    // ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½Øµï¿½ï¿½ï¿½Ï¸ï¿½ï¿½Ï¢
     printf("\n--- Cluster Details ---\n");
     for (size_t i = 0; i < all_clusters.size(); i++) {
         printf("Cluster %zu: size = %zu\n", i + 1, all_clusters[i].size());
 
-        // Èç¹û´Ø²»´ó£¬Êä³öËùÓÐ¶¥µã£»Èç¹ûºÜ´ó£¬Ö»Êä³öÇ°10¸ö
+        // ï¿½ï¿½ï¿½ï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½ã£»ï¿½ï¿½ï¿½ï¿½Ü´ï¿½Ö»ï¿½ï¿½ï¿½Ç°10ï¿½ï¿½
         if (all_clusters[i].size() <= 15) {
             printf("  Vertices: ");
             for (int vertex_id : all_clusters[i]) {
@@ -656,7 +681,7 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
         }
     }
 
-    // Êä³öÍ³¼ÆÕªÒª
+    // ï¿½ï¿½ï¿½Í³ï¿½ï¿½ÕªÒª
     printf("\n--- Statistics ---\n");
     if (!all_clusters.empty()) {
         size_t total_vertices_in_clusters = 0;
