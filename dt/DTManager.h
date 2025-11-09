@@ -17,11 +17,11 @@ protected:
 public:
     /**
      * Insert a DT instance at the end of the list.
-     * @param _instance
+     * @param instance
      * @return 0 for success, and 1 for failure.
      */
-    int insertInstance(DTInstance *&_instance) {
-        dtInstanceList.push_back(_instance);
+    int insertInstance(DTInstance *&instance) {
+        dtInstanceList.push_back(instance);
         return 0;
     };
 
@@ -30,13 +30,13 @@ public:
      * Note:
      *  When deleting an instance from the list, swap the last one with it and then pop_back.
      *  Furthermore, during the swapping, remember to update the $dtIndex$ in the corresponding DTHeap's.
-     * @param _indexToDel
+     * @param indexToRemove
      * @return 0 for success, and 1 for failure.
      */
-    void removeInstance(int _indexToDel);
+    void removeInstance(int indexToRemove);
 
-    inline DTInstance *get_instance(const int &_index) {
-        return dtInstanceList[_index];
+    inline DTInstance *get_instance(const int &index) {
+        return dtInstanceList[index];
     }
 
     inline int get_size() const {

@@ -2,20 +2,20 @@
 
 MyVector<DTBucketElement*> DTBucket::EmptyBucket;
 
-void DTBucket::DeleteElement(int bucketIndex, int elementIndex) {
-    MyVector<DTBucketElement*>& bList = buckList[bucketIndex];
-    if (bList.size() == 1) {
-        bList.pop_back();
+void DTBucket::DeleteElement(int bucketIdx, int elemIdx) {
+    MyVector<DTBucketElement*>& bucketList = buckList[bucketIdx];
+    if (bucketList.size() == 1) {
+        bucketList.pop_back();
         //this->shrinkToFit();
         return;
     }
-    int old_size = bList.size();
-    DTBucketElement* swap_e = bList[old_size - 1];
-    bList[elementIndex] = swap_e;
-    swap_e->element_index = elementIndex;
-    bList.pop_back();
-    if (bList.size() < bList.capacity() * 0.5) {
-        bList.shrink_to_fit();
+    int previousSize = bucketList.size();
+    DTBucketElement* swapElement = bucketList[previousSize - 1];
+    bucketList[elemIdx] = swapElement;
+    swapElement->element_index = elemIdx;
+    bucketList.pop_back();
+    if (bucketList.size() < bucketList.capacity() * 0.5) {
+        bucketList.shrink_to_fit();
     }
 }
 
@@ -38,39 +38,39 @@ void DTBucket::extendListSize(int index) {
     }
 }
 
-int DTBucket::InsertNewELement(int i, DTBucketElement* e, int updateCnt) {
-    this->extendListSize(i + 1);
-    buckList[i].push_back(e);
-    if(buckList[i].size() == 1){
-        cnt[i] = updateCnt;
+int DTBucket::InsertNewELement(int bucketIdx, DTBucketElement* elem, int updateCount) {
+    this->extendListSize(bucketIdx + 1);
+    buckList[bucketIdx].push_back(elem);
+    if(buckList[bucketIdx].size() == 1){
+        cnt[bucketIdx] = updateCount;
     }
-    e->element_index = buckList[i].size() - 1;
-    return buckList[i].size();
+    elem->element_index = buckList[bucketIdx].size() - 1;
+    return buckList[bucketIdx].size();
 }
 
-bool DTBucket::CheckEmptyByIndex(int index) {
-    if (buckList.size() < index) {
+bool DTBucket::CheckEmptyByIndex(int bucketIdx) {
+    if (buckList.size() < bucketIdx) {
         return true;
-    } else if (buckList[index].size() == 0) {
+    } else if (buckList[bucketIdx].size() == 0) {
         return true;
     }
     return false;
 
 }
 
-int DTBucket::sizeByIndex(int i) {
-    if (buckList.size() <= i) {
+int DTBucket::sizeByIndex(int bucketIdx) {
+    if (buckList.size() <= bucketIdx) {
         return 0;
     }
-    return buckList[i].size();
+    return buckList[bucketIdx].size();
 }
 
 void DTBucket::shrinkToFit() {
-    int i = buckList.size() - 1;
-    while (buckList[i].size() == 0) {
+    int bucketIdx = buckList.size() - 1;
+    while (buckList[bucketIdx].size() == 0) {
         buckList.pop_back();
         cnt.pop_back();
-        i--;
+        bucketIdx--;
     }
 }
 
@@ -81,16 +81,16 @@ void DTBucket::ReleaseSpace() {
     buckList.release_space();
 }
 
-DTBucketElement* DTBucket::getElement(int i, int j) const {
-    return buckList[i][j];
+DTBucketElement* DTBucket::getElement(int bucketIdx, int elemIdx) const {
+    return buckList[bucketIdx][elemIdx];
 }
 
-int DTBucket::getCnt(int i) const {
-    return cnt[i];
+int DTBucket::getCnt(int bucketIdx) const {
+    return cnt[bucketIdx];
 }
 
-void DTBucket::updateCnt(int i, int updateCnt) const {
-    cnt[i] = updateCnt;
+void DTBucket::updateCnt(int bucketIdx, int updateCount) const {
+    cnt[bucketIdx] = updateCount;
 }
 
 

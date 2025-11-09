@@ -126,6 +126,48 @@ protected:
         permutationNum = mid;
     }
 
+    // Helper functions for edge insertion/deletion
+    dynscan::Vertex* ensureVertexExists(dynscan::Vertex *v, int vertexID);
+    void checkAndPromoteToLarge(dynscan::Vertex *v1, dynscan::Vertex *v2);
+    void normalizeVertexOrder(int &vID1, int &vID2, dynscan::Vertex *&v1, dynscan::Vertex *&v2);
+    void routeInsertionByType(dynscan::Vertex *v1, dynscan::Vertex *v2);
+    void cleanupDTInstanceForEdge(dynscan::Vertex *v1, dynscan::Vertex *v2, int vID1, int vID2);
+    void routeDeletionByType(dynscan::Vertex *v1, dynscan::Vertex *v2);
+    
+    // Helper functions for small pair operations
+    int countCommonNeighborsForSmallPair(dynscan::Vertex *v1, dynscan::Vertex *v2, int initialCount);
+    double computeJaccardSimilarity(int commonCount, int deg1, int deg2);
+    void insertNeighborAndUpdateIntersection(dynscan::Vertex *v1, dynscan::Vertex *v2,
+                                             int vID1, int vID2, int intersectionIdx,
+                                             double similarity, int commonCount);
+    
+    // Helper functions for mixed pair operations
+    int countCommonNeighborsForMixedPair(dynscan::Vertex *v1, dynscan::Vertex *v2, int initialCount);
+    void createAndLinkDTInstance(dynscan::Vertex *v1, dynscan::Vertex *v2,
+                                  int deg1, int deg2, int sharedCount);
+    
+    // Helper functions for DT bucket management
+    void collectInstancesForNewRound(dynscan::Vertex *curVertex, int bucketIdx, 
+                                     int updateCnt, MyVector<DTInstance *> &newRounds);
+    void processNewRoundInstances(dynscan::Vertex *curVertex,
+                                  MyVector<DTInstance *> &newRounds,
+                                  int currentVertexID, int currentUpdateCnt);
+    void handleImmatureInstance(dynscan::Vertex *curVertex, dynscan::Vertex *neighborVertex,
+                                 DTInstance *dtInst, DTBucketElement *bucketElem,
+                                 DTBucketElement *neighborElem, int currentUpdateCnt, int neighborUpdateCnt);
+    void handleMatureInstance(dynscan::Vertex *curVertex, dynscan::Vertex *neighborVertex,
+                              DTInstance *dtInst, DTBucketElement *bucketElem,
+                              int currentUpdateCnt, int neighborUpdateCnt);
+    
+    // Helper functions for large vertex operations
+    void createDTInstanceForLargeVertex(dynscan::Vertex *v, dynscan::Vertex *neighborVertex,
+                                        int neighborIdx, int vertexID, int vertexDegree, int vertexUpdateCnt);
+    
+    // Helper functions for query operations
+    MyVector<dynscan::Vertex *> identifyCoreVertices(double eps, int mu,
+                                                     double &queryTime, int &coreCount, int &totalM_C);
+    void performBFSClustering(MyVector<dynscan::Vertex *> &coreVertices, double eps);
+
 };
 
 

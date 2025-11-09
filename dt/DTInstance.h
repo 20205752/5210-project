@@ -15,27 +15,27 @@ protected:
     DTBucketElement element1;
     DTBucketElement element2;
     // The DT tau. We set tau to negative if the instance receives one report.
-    int tau;
-    int init_tau;
+    int tauValue;
+    int initialTau;
 
-    int lambda;
-    int _exp;
+    int slackValue;
+    int exponentValue;
     /**
      *  This is the sum of the counters from the two vertices,
      *  when the current round starts.
      */
-    int initialCntSum;
+    int initialCounterSum;
 
-    int roundEndCnt;
+    int roundEndCounter;
 
     // The number of message received in the current round.
     // Since the value of msgCnt can only be either 0 or 1, actually, we can
     // save this space and use the sign of the entry index to record it.
-    int msgCnt;
+    int messageCount;
 
 private:
-    inline void set_CntSum(const int &_initialCntSum) {
-        initialCntSum = _initialCntSum;
+    inline void set_CntSum(const int &initialCntSum) {
+        initialCounterSum = initialCntSum;
     }
 
 public:
@@ -48,78 +48,78 @@ public:
 //                .bucket_index;
 //    }
 
-    inline int get_element_index(const int &_neighborID) const {
-        return (_neighborID == element1.neighborID ? element1 : element2)
+    inline int get_element_index(const int &neighborID) const {
+        return (neighborID == element1.neighborID ? element1 : element2)
                 .element_index;
     }
 
-    inline DTBucketElement* get_element(const int &_neighborID) {
-        return _neighborID == element1.neighborID ? &element1 : &element2;
+    inline DTBucketElement* get_element(const int &neighborID) {
+        return neighborID == element1.neighborID ? &element1 : &element2;
     }
 
     inline DTBucketElement *
-    get_Another_Bucket_Element(DTBucketElement* _bucketElement) {
-        return _bucketElement == &element1 ? &element2 : &element1;
+    get_Another_Bucket_Element(DTBucketElement* bucketElement) {
+        return bucketElement == &element1 ? &element2 : &element1;
     }
 
-    inline const int &get_exp() const { return _exp; };
+    inline const int &get_exp() const { return exponentValue; };
 
-    inline const int &get_slack() const { return lambda; };
+    inline const int &get_slack() const { return slackValue; };
 
-    inline const int &get_tau() const { return tau; };
+    inline const int &get_tau() const { return tauValue; };
 
-    inline void receive_report() { ++msgCnt; }
+    inline void receive_report() { ++messageCount; }
 
 //    inline bool is_mature() const { return tau == 0; }
 
-    inline bool is_mature() const { return tau <= init_tau / 10; }
+    inline bool is_mature() const { return tauValue <= initialTau / 10; }
 
-    inline bool is_round_end() const { return msgCnt == roundEndCnt; }
+    inline bool is_round_end() const { return messageCount == roundEndCounter; }
 
     // pow_2_slack
-    inline void update_tau_and_slack(const int &_uptCnt1, const int &_uptCnt2) {
-        tau = tau - (_uptCnt1 + _uptCnt2 - initialCntSum);
-        initialCntSum = _uptCnt1 + _uptCnt2;
-        if (tau >= 16) {
-            roundEndCnt = 2;
-            msgCnt = 0;
-            _exp = int(floor(log(tau / 4.0) / log(2)));
-            lambda = pow_2[_exp];
-        } else if (tau > 0) {
-            roundEndCnt = 1;
-            msgCnt = 0;
-            _exp = 0;
-            lambda = 1;
+    inline void update_tau_and_slack(const int &updateCnt1, const int &updateCnt2) {
+        tauValue = tauValue - (updateCnt1 + updateCnt2 - initialCounterSum);
+        initialCounterSum = updateCnt1 + updateCnt2;
+        if (tauValue >= 16) {
+            roundEndCounter = 2;
+            messageCount = 0;
+            exponentValue = int(floor(log(tauValue / 4.0) / log(2)));
+            slackValue = pow_2[exponentValue];
+        } else if (tauValue > 0) {
+            roundEndCounter = 1;
+            messageCount = 0;
+            exponentValue = 0;
+            slackValue = 1;
         } else {
-            lambda = 0;
-            roundEndCnt = 0;
-            _exp = 0;
-            msgCnt = 0;
+            slackValue = 0;
+            roundEndCounter = 0;
+            exponentValue = 0;
+            messageCount = 0;
         }
     }
 
-    inline DTInstance(const double &_rho,
-                      const int &_union_size_lower_bound,
-                      const int &_uptCnt1, const int &_uptCnt2,
-                      const int &_vid1, const int &_vid2,
-                      const int &_dtIndex) {
-        reset_status(_rho, _union_size_lower_bound, _uptCnt1, _uptCnt2);
+    inline DTInstance(const double &rhoParam,
+                      const int &unionSizeLowerBound,
+                      const int &updateCnt1, const int &updateCnt2,
+                      const int &vertexID1, const int &vertexID2,
+                      const int &dtIndex) {
+        reset_status(rhoParam, unionSizeLowerBound, updateCnt1, updateCnt2);
 
-        element1.cnt = _uptCnt1;
-        element1.neighborID = _vid2;
-        element1.dtIndex = _dtIndex;
-        element2.cnt = _uptCnt2;
-        element2.neighborID = _vid1;
-        element2.dtIndex = _dtIndex;
+        element1.cnt = updateCnt1;
+        element1.neighborID = vertexID2;
+        element1.dtIndex = dtIndex;
+        element2.cnt = updateCnt2;
+        element2.neighborID = vertexID1;
+        element2.dtIndex = dtIndex;
     }
 
-    inline void reset_status(const double &_rho,
-                             const int &_union_size_lower_bound,
-                             const int &_uptCnt1, const int &_uptCnt2) {
-        tau = floor(_rho * _union_size_lower_bound / 2) + 1;
-        init_tau = tau;
-        set_CntSum(_uptCnt1 + _uptCnt2);
-        update_tau_and_slack(_uptCnt1, _uptCnt2);
+    inline void reset_status(const double &rhoParam,
+                             const int &unionSizeLowerBound,
+                             const int &updateCnt1, const int &updateCnt2) {
+        tauValue = floor(rhoParam * unionSizeLowerBound / 2) + 1;
+        initialTau = tauValue;
+        set_CntSum(updateCnt1 + updateCnt2);
+        update_tau_and_slack(updateCnt1, updateCnt2);
     }
 };
 

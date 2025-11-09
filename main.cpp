@@ -6,62 +6,62 @@
 #include <stdio.h>
 #include <random>
 
-struct Param {
-    char graph_file[200];
-    char update_file[200];
-    double rho;
+struct ConfigParams {
+    char graphFilePath[200];
+    char updateFilePath[200];
+    double rhoValue;
 };
 
-struct Param parseArgs(int nargs, char **args) {
-    Param rtn;
-    int cnt = 1;
-    bool failed = false;
-    char *arg;
-    int i;
-    char para[10];
-    char graph_file[200] = "./test_data/Condmat.bin";
-    char update_file[200] = "./test_data/10x_Uniform_5.txt";
-    double rho = 0.01;
+struct ConfigParams parseCommandLineArgs(int argc, char **argv) {
+    ConfigParams result;
+    int argIndex = 1;
+    bool parseError = false;
+    char *currentArg;
+    int charPos;
+    char paramName[10];
+    char graphPath[200] = "./test_data/Condmat.bin";
+    char updatePath[200] = "./test_data/10x_Uniform_5.txt";
+    double rhoParam = 0.01;
 
     printf("The input parameters are:\n\n");
-    while (cnt < nargs && !failed) {
-        arg = args[cnt++];
-        if (cnt == nargs) {
-            failed = true;
+    while (argIndex < argc && !parseError) {
+        currentArg = argv[argIndex++];
+        if (argIndex == argc) {
+            parseError = true;
             break;
         }
-        i = getNextChar(arg);
-        if (arg[i] != '-') {
-            failed = true;
+        charPos = getNextChar(currentArg);
+        if (currentArg[charPos] != '-') {
+            parseError = true;
             break;
         }
-        getNextWord(arg + i + 1, para);
-        printf("%s\t", para);
-        arg = args[cnt++];
-        if (strcmp(para, "graph") == 0) {
-            getNextWord(arg, graph_file);
-            printf("%s\n", graph_file);
-        } else if (strcmp(para, "rho") == 0) {
-            rho = atof(arg);
-            if (rho < 0 || rho > 1) {
-                failed = true;
+        getNextWord(currentArg + charPos + 1, paramName);
+        printf("%s\t", paramName);
+        currentArg = argv[argIndex++];
+        if (strcmp(paramName, "graph") == 0) {
+            getNextWord(currentArg, graphPath);
+            printf("%s\n", graphPath);
+        } else if (strcmp(paramName, "rho") == 0) {
+            rhoParam = atof(currentArg);
+            if (rhoParam < 0 || rhoParam > 1) {
+                parseError = true;
                 break;
             }
-            printf("rho : %lf\n", rho);
-        } else if (strcmp(para, "update") == 0) {
-            getNextWord(arg, update_file);
-            printf("%s\n", update_file);
+            printf("rho : %lf\n", rhoParam);
+        } else if (strcmp(paramName, "update") == 0) {
+            getNextWord(currentArg, updatePath);
+            printf("%s\n", updatePath);
         } else {
-            failed = true;
-            printf("Unknown option -%s!\n\n", para);
+            parseError = true;
+            printf("Unknown option -%s!\n\n", paramName);
         }
     }
 
     /*****************************************************************************/
-    strcpy(rtn.graph_file, graph_file);
-    strcpy(rtn.update_file, update_file);
-    rtn.rho = rho;
-    return rtn;
+    strcpy(result.graphFilePath, graphPath);
+    strcpy(result.updateFilePath, updatePath);
+    result.rhoValue = rhoParam;
+    return result;
 }
 
 void usage() {
@@ -70,12 +70,106 @@ void usage() {
            "-rho [\\rho]\n");
 }
 
-int generateRandomInt(int min, int max) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dis(min, max);
+int generateRandomInteger(int lowerBound, int upperBound) {
+    std::random_device randomDevice;
+    std::mt19937 generator(randomDevice());
+    std::uniform_int_distribution<int> distribution(lowerBound, upperBound);
 
-    return dis(gen);
+    return distribution(generator);
+}
+
+void loadGraphFromFile(const char *filePath, unsigned int &vertexCount, 
+                       unsigned int &edgeCount, int *&edgeArray) {
+    FILE *fileHandle = fopen(filePath, "rb");
+    if (fileHandle == NULL) {
+        printf("graph file not found.\n");
+        exit(1);
+    }
+    fread(&vertexCount, 1, sizeof(int), fileHandle);
+    fread(&edgeCount, 1, sizeof(int), fileHandle);
+    edgeArray = (int *) malloc(sizeof(int) * edgeCount);
+    fread(edgeArray, edgeCount, sizeof(int), fileHandle);
+    fclose(fileHandle);
+}
+
+void loadUpdatesFromFile(const char *filePath, vector<pair<int, pair<int, int>>> &updateList) {
+    FILE *fileHandle = fopen(filePath, "r");
+    int opType = 0, vertex1 = 0, vertex2 = 0;
+    while (fscanf(fileHandle, "%d%d%d", &opType, &vertex1, &vertex2) != EOF) {
+        updateList.emplace_back(make_pair(opType, make_pair(vertex1, vertex2)));
+    }
+    fclose(fileHandle);
+}
+
+void initializeVertexList(int vertexCount, MyVector<dynscan::Vertex *> &vertexList) {
+    vertexList.reserve(vertexCount);
+    for (int idx = 0; idx < vertexCount; idx++) {
+        dynscan::Vertex *newVertex = new dynscan::Vertex(idx + 1);
+        vertexList.push_back(newVertex);
+    }
+}
+
+void processInitialEdges(Graph &graph, int *edgeArray, unsigned int edgeCount) {
+    double startTime = getCurrentTime();
+    double endTime = 0;
+    double outputInterval = 0.1;
+    double nextOutputPercent = outputInterval;
+    int nextOutputPos = (edgeCount / 2) * nextOutputPercent;
+    
+    for (int edgeIdx = 0, processedCount = 0; edgeIdx < edgeCount; edgeIdx += 2, ++processedCount) {
+        graph.insertEdge(edgeArray[edgeIdx], edgeArray[edgeIdx + 1]);
+        if (processedCount == nextOutputPos - 1) {
+            endTime = getCurrentTime();
+            printf("Total time used after inserting %.2lf m edges: *%.9lf*\t"
+                   "Average time in processing one insertion: *%.9lf*\n",
+                   nextOutputPercent, endTime - startTime,
+                   (endTime - startTime) / (double) (processedCount + 1));
+            nextOutputPercent += outputInterval;
+            nextOutputPos = (edgeCount / 2) * nextOutputPercent;
+        }
+    }
+}
+
+void processUpdatesAndQueries(Graph &graph, vector<pair<int, pair<int, int>>> &updateList,
+                              unsigned int edgeCount, unsigned int vertexCount) {
+    printf("---------------------------------------------------------------------\n");
+    int nextOutputPos = (int) (0.1 * edgeCount / 2);
+    double totalQueryTime = 0, totalUpdateTime = 0;
+    int queryCount = 0;
+    int nextQueryPos = 20;
+    
+    for (long long updateIdx = 0, updateSize = updateList.size(); updateIdx < updateSize; ++updateIdx) {
+        double startTime = getCurrentTime();
+        if (updateList[updateIdx].first == 1) {
+            graph.insertEdge(updateList[updateIdx].second.first, 
+                            updateList[updateIdx].second.second);
+        } else {
+            graph.removeEdge(updateList[updateIdx].second.first, 
+                            updateList[updateIdx].second.second);
+        }
+        double endTime = getCurrentTime();
+        totalUpdateTime += endTime - startTime;
+        
+        if (updateIdx == nextOutputPos - 1) {
+            double outputPercent = nextOutputPos / (double) (edgeCount / 2);
+            printf("After updating %.2lf m edges, the average time for each update: *%.9lf*\n",
+                   outputPercent, totalUpdateTime / (double) (updateIdx + 1));
+            nextOutputPos += (int) (0.1 * edgeCount / 2);
+        }
+        
+        if (updateIdx == nextQueryPos - 1) {
+            double queryTime = 0;
+            double epsilon = generateRandomInteger(100, 1000) / 1000.0;
+            int muParam = generateRandomInteger(1, int(2 * edgeCount / vertexCount));
+            queryTime = graph.query(epsilon, muParam);
+            totalQueryTime += queryTime;
+            queryCount++;
+            nextQueryPos += nextQueryPos;
+        }
+    }
+
+    printf("---------------------------------------------------------------------\n");
+    printf("Average query time: *%.9lf*\t", totalQueryTime / queryCount);
 }
 
 int main(int argc, char **argv) {
@@ -85,96 +179,28 @@ int main(int argc, char **argv) {
     }
     printf("Start to parse the arguments\n");
 
-    Param para = parseArgs(argc, argv);
-
+    ConfigParams config = parseCommandLineArgs(argc, argv);
     printf("Arguments parsed.\n");
 
-    FILE *f = fopen(para.graph_file, "rb");
+    unsigned int vertexCount, edgeCount;
+    int *edgeArray = nullptr;
+    loadGraphFromFile(config.graphFilePath, vertexCount, edgeCount, edgeArray);
 
-    if (f == NULL) {
-        printf("graph file not found.\n");
-        exit(1);
-    }
+    vector<pair<int, pair<int, int>>> updateList;
+    updateList.reserve(9 * (edgeCount / 2));
+    loadUpdatesFromFile(config.updateFilePath, updateList);
 
-    unsigned int n, m;
-    fread(&n, 1, sizeof(int), f);
-    fread(&m, 1, sizeof(int), f);
-    int *edges = (int *) malloc(sizeof(int) * m);
-    fread(edges, m, sizeof(int), f);
-    fclose(f);
-    f = fopen(para.update_file, "r");
-    vector<pair<int, pair<int, int>>> updates;
-    updates.reserve(9 * (m / 2));
-    int a = 0, b = 0, c = 0;
-    while (fscanf(f, "%d%d%d", &a, &b, &c) != EOF) {
-        updates.emplace_back(make_pair(a, make_pair(b, c)));
-    }
-    fclose(f);
+    MyVector<dynscan::Vertex *> vertexList;
+    initializeVertexList(vertexCount, vertexList);
+    
+    Graph graph(vertexList, config.rhoValue);
+    printf("Graph generation finished with %d vertices and %d edges.\n", 
+           vertexCount, edgeCount / 2);
 
-    MyVector<dynscan::Vertex *> _vList;
-    _vList.reserve(n);
-
-    for (int i = 0; i < n; i++) {
-        dynscan::Vertex *newVertex = new dynscan::Vertex(i + 1);
-        _vList.push_back(newVertex);
-    }
-    Graph graph(_vList, para.rho);
-    printf("Graph generation finished with %d vertices and %d edges.\n", n,
-           m / 2);
-
-    _vList.release_space();
-    double start = getCurrentTime();
-    double end = 0;
-    double output_gap = 0.1;
-    double next_output_percentage = output_gap;
-    int next_output_position = (m / 2) * next_output_percentage;
-    for (int i = 0, j = 0; i < m; i += 2, ++j) {
-        graph.insertEdge(edges[i], edges[i + 1]);
-        if (j == next_output_position - 1) {
-            end = getCurrentTime();
-            printf("Total time used after inserting %.2lf m edges: *%.9lf*\t"
-                   "Average time in processing one insertion: *%.9lf*\n",
-                   next_output_percentage, end - start,
-                   (end - start) / (double) (j + 1));
-            next_output_percentage += output_gap;
-            next_output_position = (m / 2) * next_output_percentage;
-        }
-    }
-
-    printf("---------------------------------------------------------------------\n");
-    next_output_position = (int) (0.1 * m / 2);
-    double total_query = 0, total_update = 0, query_times = 0;
-    int next_query_position = 20;
-    for (long long i = 0, usize = updates.size(); i < usize; ++i) {
-        start = getCurrentTime();
-        if (updates[i].first == 1) {
-            graph.insertEdge(updates[i].second.first, updates[i].second.second);
-        } else {
-            graph.removeEdge(updates[i].second.first, updates[i].second.second);
-        }
-        end = getCurrentTime();
-        total_update += end - start;
-        if (i == next_output_position - 1) {
-
-            next_output_percentage = next_output_position / (double) (m / 2);
-            printf("After updating %.2lf m edges, the average time for each update: *%.9lf*\n",
-                   next_output_percentage,
-                   total_update / (double) (i + 1));
-
-            next_output_position += (int) (0.1 * m / 2);
-        }
-        if (i == next_query_position - 1) {
-            double q_time = 0;
-            double esp = generateRandomInt(100, 1000) / 1000.0;
-            int mu = generateRandomInt(1, int(2 * m / n));
-            q_time = graph.query(esp, mu);
-            total_query += q_time;
-            query_times++;
-            next_query_position += next_query_position;
-        }
-    }
-
-    printf("---------------------------------------------------------------------\n");
-    printf("Average query time: *%.9lf*\t",
-           total_query / query_times);
+    vertexList.release_space();
+    processInitialEdges(graph, edgeArray, edgeCount);
+    processUpdatesAndQueries(graph, updateList, edgeCount, vertexCount);
+    
+    free(edgeArray);
+    return 0;
 }
