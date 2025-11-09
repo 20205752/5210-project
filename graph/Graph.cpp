@@ -315,11 +315,15 @@ void Graph::routeDeletionByType(dynscan::Vertex *v1, dynscan::Vertex *v2) {
 int Graph::countCommonNeighborsForSmallPair(dynscan::Vertex *v1, 
                                              dynscan::Vertex *v2, 
                                              int initialCount) {
+    // Modified: Changed to reverse iteration order
+    // Reason: Affects CPU cache locality, may cause slight performance degradation (1-2%)
+    // Expected impact: Performance decrease due to reduced cache hit rate
+    // This change is intentional for comparison analysis
     int commonCount = initialCount;
     const int deg1 = v1->getDegree();
     int *adjList1 = v1->getAdjacentList();
     
-    for (int i = 0; i < deg1; ++i) {
+    for (int i = deg1 - 1; i >= 0; --i) {
         const int &neighborID = adjList1[i];
         auto *neighborVertex = (dynscan::Vertex *) vList[neighborID - 1];
         const int idx = v2->getAdjacentIndex(neighborID);
@@ -335,7 +339,16 @@ int Graph::countCommonNeighborsForSmallPair(dynscan::Vertex *v1,
 }
 
 double Graph::computeJaccardSimilarity(int commonCount, int deg1, int deg2) {
-    return commonCount / (double) (deg1 + deg2 + 4 - commonCount);
+    // Modified: Added intermediate variables to increase memory access
+    // Reason: Increases memory access overhead, may cause slight performance degradation (0.5-1%)
+    // Expected impact: Performance decrease due to additional memory operations
+    // This change is intentional for comparison analysis
+    double numerator = (double)commonCount;
+    double deg1_d = (double)deg1;
+    double deg2_d = (double)deg2;
+    double constant = 4.0;
+    double denominator = deg1_d + deg2_d + constant - numerator;
+    return numerator / denominator;
 }
 
 void Graph::insertNeighborAndUpdateIntersection(dynscan::Vertex *v1, 
@@ -452,7 +465,14 @@ void Graph::handleMatureInstance(dynscan::Vertex *curVertex,
                                   DTBucketElement *bucketElem,
                                   int currentUpdateCnt,
                                   int neighborUpdateCnt) {
+    // Modified: Added small epsilon to similarity calculation
+    // Reason: Simulates floating-point precision accumulation, may affect boundary similarity comparisons
+    // Expected impact: May cause slight differences in clustering results for edge cases
+    // This change is intentional for comparison analysis
     double newSimScore = myJaccard->compute_similarity(*curVertex, *neighborVertex);
+    // Add small numerical perturbation (simulating floating-point error accumulation)
+    const double EPSILON = 1e-10;
+    newSimScore = newSimScore + EPSILON - EPSILON;  // Force re-normalization, may change boundary values
     curVertex->updateNeighborSimScore(newSimScore, neighborVertex->id);
     neighborVertex->updateNeighborSimScore(newSimScore, curVertex->id);
 
@@ -493,10 +513,15 @@ MyVector<dynscan::Vertex *> Graph::identifyCoreVertices(double eps, int mu,
                                                          double &queryTime,
                                                          int &coreCount,
                                                          int &totalM_C) {
+    // Modified: Changed to reverse iteration order
+    // Reason: Changes vertex processing order, may affect clustering boundaries for edge cases
+    // Expected impact: May cause slight differences in clustering results for boundary vertices
+    // This change is intentional for comparison analysis
     MyVector<dynscan::Vertex *> coreVertices;
     double qStart, qEnd;
+    int vertexNum = vList.size();
     
-    for (int i = 0, vertexNum = vList.size(); i < vertexNum; i++) {
+    for (int i = vertexNum - 1; i >= 0; --i) {
         dynscan::Vertex *v = (dynscan::Vertex *) vList[i];
         if(v->getDegree() <= mu){
             continue;
@@ -557,18 +582,18 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
     printf("\n=== FINAL CLUSTERING RESULTS ===\n");
     printf("Parameters: eps=%.2f, mu=%d\n", eps, mu);
 
-    // µÚÒ»½×¶Î£ºÕÒµ½ËùÓĞºËĞÄ¶¥µã
+    // ç¬¬ä¸€é˜¶æ®µï¼šæ‰¾åˆ°æ‰€æœ‰æ ¸å¿ƒé¡¶ç‚¹
     std::vector<dynscan::Vertex*> cores;
     for (int i = 0, vertex_number = vList.size(); i < vertex_number; i++) {
         dynscan::Vertex* v = static_cast<dynscan::Vertex*>(vList[i]);
         if (v == nullptr) continue;
 
-        // Ìø¹ı¶ÈÊı²»×ãµÄ¶¥µã
+        // è·³è¿‡åº¦æ•°ä¸è¶³çš„é¡¶ç‚¹
         if (v->getDegree() < mu) {
             continue;
         }
 
-        // Ê¹ÓÃquery·½·¨À´¼ì²éÊÇ·ñÊÇºËĞÄ¶¥µã
+        // ä½¿ç”¨queryæ–¹æ³•æ¥æ£€æŸ¥æ˜¯å¦æ˜¯æ ¸å¿ƒé¡¶ç‚¹
         int temp_m_C = v->query(eps, mu);
         if (temp_m_C > 0) {
             cores.push_back(v);
@@ -577,14 +602,14 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
 
     printf("Total core vertices found: %zu\n", cores.size());
 
-    // µÚ¶ş½×¶Î£ºÖ´ĞĞ¾ÛÀà²¢Êä³ö½á¹û
+    // ç¬¬äºŒé˜¶æ®µï¼šæ‰§è¡Œèšç±»å¹¶è¾“å‡ºç»“æœ
     int vertex_number = static_cast<int>(vList.size());
     std::vector<int> visited(vertex_number, 0);
     std::queue<dynscan::Vertex*> Q;
     std::vector<std::vector<int>> all_clusters;
 
     for (auto* coreVertex : cores) {
-        int vertex_index = coreVertex->id; // ¸ù¾İÊµ¼ÊÇé¿öµ÷Õû
+        int vertex_index = coreVertex->id; // æ ¹æ®å®é™…æƒ…å†µè°ƒæ•´
 
         if (vertex_index >= vertex_number || visited[vertex_index] == 1) {
             continue;
@@ -599,11 +624,11 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
             Q.pop();
             cluster.push_back(u->id);
 
-            // ±éÀúÏàËÆÁÚ¾Ó
+            // éå†ç›¸ä¼¼é‚»å±…
             for (auto rit = u->NOPtr->rbegin(); rit != u->NOPtr->rend(); ++rit) {
                 if (rit->first >= eps) {
                     int neighborID = rit->second;
-                    int neighbor_index = neighborID; // ¸ù¾İÊµ¼ÊÇé¿öµ÷Õû
+                    int neighbor_index = neighborID; // æ ¹æ®å®é™…æƒ…å†µè°ƒæ•´
 
                     if (neighbor_index < vertex_number && visited[neighbor_index] == 0) {
                         visited[neighbor_index] = 1;
@@ -622,16 +647,16 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
         all_clusters.push_back(cluster);
     }
 
-    // Êä³ö¾ÛÀàÍ³¼ÆĞÅÏ¢µ½¿ØÖÆÌ¨
+    // è¾“å‡ºèšç±»ç»Ÿè®¡ä¿¡æ¯åˆ°æ§åˆ¶å°
     printf("Total clusters: %zu\n", all_clusters.size());
 
-    // °´´Ø´óĞ¡ÅÅĞò£¨´Ó´óµ½Ğ¡£©
+    // æŒ‰ç°‡å¤§å°æ’åºï¼ˆä»å¤§åˆ°å°ï¼‰
     std::sort(all_clusters.begin(), all_clusters.end(),
         [](const std::vector<int>& a, const std::vector<int>& b) {
             return a.size() > b.size();
         });
 
-    // ½«ÍêÕûĞÅÏ¢±£´æµ½txtÎÄ¼ş - Ê¹ÓÃC·ç¸ñÉú³ÉÎÄ¼şÃû
+    // å°†å®Œæ•´ä¿¡æ¯ä¿å­˜åˆ°txtæ–‡ä»¶ - ä½¿ç”¨Cé£æ ¼ç”Ÿæˆæ–‡ä»¶å
     char filename[100];
     sprintf(filename, "cluster_results_eps_%.1f_mu_%d.txt", eps, mu);
 
@@ -642,7 +667,7 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
         fprintf(file, "Total core vertices found: %zu\n", cores.size());
         fprintf(file, "Total clusters: %zu\n\n", all_clusters.size());
 
-        // ÔÚÎÄ¼şÖĞ±£´æËùÓĞ´ØµÄÍêÕûĞÅÏ¢
+        // åœ¨æ–‡ä»¶ä¸­ä¿å­˜æ‰€æœ‰ç°‡çš„å®Œæ•´ä¿¡æ¯
         for (size_t i = 0; i < all_clusters.size(); i++) {
             fprintf(file, "Cluster %zu: size = %zu\n", i + 1, all_clusters[i].size());
             fprintf(file, "Vertices: ");
@@ -652,7 +677,7 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
             fprintf(file, "\n\n");
         }
 
-        // ÔÚÎÄ¼şÖĞ±£´æÍ³¼ÆĞÅÏ¢
+        // åœ¨æ–‡ä»¶ä¸­ä¿å­˜ç»Ÿè®¡ä¿¡æ¯
         fprintf(file, "=== STATISTICS ===\n");
         if (!all_clusters.empty()) {
             size_t total_vertices_in_clusters = 0;
@@ -681,12 +706,12 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
         printf("Warning: Could not save complete results to file.\n");
     }
 
-    // ÔÚ¿ØÖÆÌ¨Ö»Êä³ö¸ÅÀ¨ĞÅÏ¢
+    // åœ¨æ§åˆ¶å°åªè¾“å‡ºæ¦‚æ‹¬ä¿¡æ¯
     //printf("\n--- Summary (Complete details saved to file) ---\n");
     //for (size_t i = 0; i < all_clusters.size(); i++) {
     //    printf("Cluster %zu: size = %zu", i + 1, all_clusters[i].size());
 
-    //    // ¶ÔÓÚĞ¡´Ø£¬ÔÚ¿ØÖÆÌ¨Ò²ÏÔÊ¾ËùÓĞ¶¥µã£»¶ÔÓÚ´ó´Ø£¬Ö»ÏÔÊ¾´óĞ¡
+    //    // å¯¹äºå°ç°‡ï¼Œåœ¨æ§åˆ¶å°ä¹Ÿæ˜¾ç¤ºæ‰€æœ‰é¡¶ç‚¹ï¼›å¯¹äºå¤§ç°‡ï¼Œåªæ˜¾ç¤ºå¤§å°
     //    if (all_clusters[i].size() <= 10) {
     //        printf(" - Vertices: ");
     //        for (int vertex_id : all_clusters[i]) {
@@ -696,7 +721,7 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
     //    printf("\n");
     //}
 
-    // Êä³öÍ³¼ÆÕªÒªµ½¿ØÖÆÌ¨
+    // è¾“å‡ºç»Ÿè®¡æ‘˜è¦åˆ°æ§åˆ¶å°
     printf("\n--- Statistics ---\n");
     if (!all_clusters.empty()) {
         size_t total_vertices_in_clusters = 0;
