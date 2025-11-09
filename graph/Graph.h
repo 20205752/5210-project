@@ -47,6 +47,8 @@ public:
 
     double query(double eps, int mu);
 
+    void printFinalClusterInfo(double eps, int mu);
+
 protected:
     /**
      * Make vertex v a large vertex

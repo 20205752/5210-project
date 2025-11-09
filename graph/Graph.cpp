@@ -551,4 +551,136 @@ void Graph::performBFSClustering(MyVector<dynscan::Vertex *> &coreVertices, doub
     }
     delete[] visited;
 }
+
+
+void Graph::printFinalClusterInfo(double eps, int mu) {
+    printf("\n=== FINAL CLUSTERING RESULTS ===\n");
+    printf("Parameters: eps=%.2f, mu=%d\n", eps, mu);
+
+    // 第一阶段：找到所有核心顶点
+    std::vector<dynscan::Vertex*> cores;
+    for (int i = 0, vertex_number = vList.size(); i < vertex_number; i++) {
+        dynscan::Vertex* v = static_cast<dynscan::Vertex*>(vList[i]);
+        if (v == nullptr) continue;
+
+        // 跳过度数不足的顶点
+        if (v->getDegree() < mu) {
+            continue;
+        }
+
+        // 使用query方法来检查是否是核心顶点
+        int temp_m_C = v->query(eps, mu);
+        if (temp_m_C > 0) {
+            cores.push_back(v);
+        }
+    }
+
+    printf("Total core vertices found: %zu\n", cores.size());
+
+    // 第二阶段：执行聚类并输出结果
+    int vertex_number = static_cast<int>(vList.size());
+    std::vector<int> visited(vertex_number, 0);
+    std::queue<dynscan::Vertex*> Q;
+    std::vector<std::vector<int>> all_clusters;
+
+    for (auto* coreVertex : cores) {
+        // 注意：根据你的图结构调整索引方式
+        // 如果顶点ID从1开始，使用 coreVertex->id - 1
+        // 如果顶点ID从0开始，使用 coreVertex->id
+        int vertex_index = coreVertex->id; // 根据实际情况调整
+
+        if (vertex_index >= vertex_number || visited[vertex_index] == 1) {
+            continue;
+        }
+
+        Q.push(coreVertex);
+        visited[vertex_index] = 1;
+        std::vector<int> cluster;
+
+        while (!Q.empty()) {
+            dynscan::Vertex* u = Q.front();
+            Q.pop();
+            cluster.push_back(u->id);
+
+            // 遍历相似邻居
+            for (auto rit = u->NOPtr->rbegin(); rit != u->NOPtr->rend(); ++rit) {
+                if (rit->first >= eps) {
+                    int neighborID = rit->second;
+                    int neighbor_index = neighborID; // 根据实际情况调整
+
+                    if (neighbor_index < vertex_number && visited[neighbor_index] == 0) {
+                        visited[neighbor_index] = 1;
+                        auto* neighbor = static_cast<dynscan::Vertex*>(vList[neighbor_index]);
+                        if (neighbor != nullptr) {
+                            Q.push(neighbor);
+                        }
+                    }
+                }
+                else {
+                    break;
+                }
+            }
+        }
+
+        all_clusters.push_back(cluster);
+    }
+
+    // 输出聚类统计信息
+    printf("Total clusters: %zu\n", all_clusters.size());
+
+    // 按簇大小排序（从大到小）
+    std::sort(all_clusters.begin(), all_clusters.end(),
+        [](const std::vector<int>& a, const std::vector<int>& b) {
+            return a.size() > b.size();
+        });
+
+    // 输出每个簇的详细信息
+    printf("\n--- Cluster Details ---\n");
+    for (size_t i = 0; i < all_clusters.size(); i++) {
+        printf("Cluster %zu: size = %zu\n", i + 1, all_clusters[i].size());
+
+        // 如果簇不大，输出所有顶点；如果很大，只输出前10个
+        if (all_clusters[i].size() <= 15) {
+            printf("  Vertices: ");
+            for (int vertex_id : all_clusters[i]) {
+                printf("%d ", vertex_id);
+            }
+            printf("\n");
+        }
+        else {
+            printf("  Vertices (first 10): ");
+            for (int j = 0; j < 10 && j < all_clusters[i].size(); j++) {
+                printf("%d ", all_clusters[i][j]);
+            }
+            printf("... (and %zu more)\n", all_clusters[i].size() - 10);
+        }
+    }
+
+    // 输出统计摘要
+    printf("\n--- Statistics ---\n");
+    if (!all_clusters.empty()) {
+        size_t total_vertices_in_clusters = 0;
+        size_t max_cluster_size = 0;
+        size_t min_cluster_size = all_clusters[0].size();
+
+        for (const auto& cluster : all_clusters) {
+            total_vertices_in_clusters += cluster.size();
+            if (cluster.size() > max_cluster_size) max_cluster_size = cluster.size();
+            if (cluster.size() < min_cluster_size) min_cluster_size = cluster.size();
+        }
+
+        double avg_cluster_size = static_cast<double>(total_vertices_in_clusters) / all_clusters.size();
+
+        printf("Total vertices in clusters: %zu\n", total_vertices_in_clusters);
+        printf("Cluster size - Max: %zu, Min: %zu, Avg: %.2f\n",
+            max_cluster_size, min_cluster_size, avg_cluster_size);
+        printf("Number of singleton clusters: %zu\n",
+            std::count_if(all_clusters.begin(), all_clusters.end(),
+                [](const std::vector<int>& c) { return c.size() == 1; }));
+    }
+    else {
+        printf("No clusters found.\n");
+    }
+
+    printf("====================================\n");
 }
