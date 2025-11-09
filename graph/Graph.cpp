@@ -584,9 +584,6 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
     std::vector<std::vector<int>> all_clusters;
 
     for (auto* coreVertex : cores) {
-        // 注意：根据你的图结构调整索引方式
-        // 如果顶点ID从1开始，使用 coreVertex->id - 1
-        // 如果顶点ID从0开始，使用 coreVertex->id
         int vertex_index = coreVertex->id; // 根据实际情况调整
 
         if (vertex_index >= vertex_number || visited[vertex_index] == 1) {
@@ -625,7 +622,7 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
         all_clusters.push_back(cluster);
     }
 
-    // 输出聚类统计信息
+    // 输出聚类统计信息到控制台
     printf("Total clusters: %zu\n", all_clusters.size());
 
     // 按簇大小排序（从大到小）
@@ -634,39 +631,84 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
             return a.size() > b.size();
         });
 
-    // 输出每个簇的详细信息
-    printf("\n--- Cluster Details ---\n");
-    for (size_t i = 0; i < all_clusters.size(); i++) {
-        printf("Cluster %zu: size = %zu\n", i + 1, all_clusters[i].size());
+    // 将完整信息保存到txt文件 - 使用C风格生成文件名
+    char filename[100];
+    sprintf(filename, "cluster_results_eps_%.1f_mu_%d.txt", eps, mu);
 
-        // 如果簇不大，输出所有顶点；如果很大，只输出前10个
-        if (all_clusters[i].size() <= 15) {
-            printf("  Vertices: ");
+    FILE* file = fopen(filename, "w");
+    if (file) {
+        fprintf(file, "=== COMPLETE CLUSTERING RESULTS ===\n");
+        fprintf(file, "Parameters: eps=%.2f, mu=%d\n", eps, mu);
+        fprintf(file, "Total core vertices found: %zu\n", cores.size());
+        fprintf(file, "Total clusters: %zu\n\n", all_clusters.size());
+
+        // 在文件中保存所有簇的完整信息
+        for (size_t i = 0; i < all_clusters.size(); i++) {
+            fprintf(file, "Cluster %zu: size = %zu\n", i + 1, all_clusters[i].size());
+            fprintf(file, "Vertices: ");
             for (int vertex_id : all_clusters[i]) {
-                printf("%d ", vertex_id);
+                fprintf(file, "%d ", vertex_id);
             }
-            printf("\n");
+            fprintf(file, "\n\n");
         }
-        else {
-            printf("  Vertices (first 10): ");
-            for (int j = 0; j < 10 && j < all_clusters[i].size(); j++) {
-                printf("%d ", all_clusters[i][j]);
+
+        // 在文件中保存统计信息
+        fprintf(file, "=== STATISTICS ===\n");
+        if (!all_clusters.empty()) {
+            size_t total_vertices_in_clusters = 0;
+            size_t max_cluster_size = 0;
+            size_t min_cluster_size = all_clusters[0].size();
+            size_t singleton_count = 0;
+
+            for (const auto& cluster : all_clusters) {
+                total_vertices_in_clusters += cluster.size();
+                if (cluster.size() > max_cluster_size) max_cluster_size = cluster.size();
+                if (cluster.size() < min_cluster_size) min_cluster_size = cluster.size();
+                if (cluster.size() == 1) singleton_count++;
             }
-            printf("... (and %zu more)\n", all_clusters[i].size() - 10);
+
+            double avg_cluster_size = static_cast<double>(total_vertices_in_clusters) / all_clusters.size();
+
+            fprintf(file, "Total vertices in clusters: %zu\n", total_vertices_in_clusters);
+            fprintf(file, "Cluster size - Max: %zu, Min: %zu, Avg: %.2f\n",
+                max_cluster_size, min_cluster_size, avg_cluster_size);
+            fprintf(file, "Number of singleton clusters: %zu\n", singleton_count);
         }
+        fclose(file);
+        printf("Complete cluster details saved to: %s\n", filename);
+    }
+    else {
+        printf("Warning: Could not save complete results to file.\n");
     }
 
-    // 输出统计摘要
+    // 在控制台只输出概括信息
+    //printf("\n--- Summary (Complete details saved to file) ---\n");
+    //for (size_t i = 0; i < all_clusters.size(); i++) {
+    //    printf("Cluster %zu: size = %zu", i + 1, all_clusters[i].size());
+
+    //    // 对于小簇，在控制台也显示所有顶点；对于大簇，只显示大小
+    //    if (all_clusters[i].size() <= 10) {
+    //        printf(" - Vertices: ");
+    //        for (int vertex_id : all_clusters[i]) {
+    //            printf("%d ", vertex_id);
+    //        }
+    //    }
+    //    printf("\n");
+    //}
+
+    // 输出统计摘要到控制台
     printf("\n--- Statistics ---\n");
     if (!all_clusters.empty()) {
         size_t total_vertices_in_clusters = 0;
         size_t max_cluster_size = 0;
         size_t min_cluster_size = all_clusters[0].size();
+        size_t singleton_count = 0;
 
         for (const auto& cluster : all_clusters) {
             total_vertices_in_clusters += cluster.size();
             if (cluster.size() > max_cluster_size) max_cluster_size = cluster.size();
             if (cluster.size() < min_cluster_size) min_cluster_size = cluster.size();
+            if (cluster.size() == 1) singleton_count++;
         }
 
         double avg_cluster_size = static_cast<double>(total_vertices_in_clusters) / all_clusters.size();
@@ -674,9 +716,8 @@ void Graph::printFinalClusterInfo(double eps, int mu) {
         printf("Total vertices in clusters: %zu\n", total_vertices_in_clusters);
         printf("Cluster size - Max: %zu, Min: %zu, Avg: %.2f\n",
             max_cluster_size, min_cluster_size, avg_cluster_size);
-        printf("Number of singleton clusters: %zu\n",
-            std::count_if(all_clusters.begin(), all_clusters.end(),
-                [](const std::vector<int>& c) { return c.size() == 1; }));
+        printf("Number of singleton clusters: %zu\n", singleton_count);
+
     }
     else {
         printf("No clusters found.\n");

@@ -202,9 +202,9 @@ int main(int argc, char **argv) {
     processUpdatesAndQueries(graph, updateList, edgeCount, vertexCount);
 
     // 输出最终的聚类信息
-    //double final_eps = 0.5;  // 你可以调整这些参数
-    //int final_mu = 2;        // 你可以调整这些参数
-    //graph.printFinalClusterInfo(final_eps, final_mu);
+    double final_eps = 0.5;  // 你可以调整这些参数
+    int final_mu = 2;        // 你可以调整这些参数
+    graph.printFinalClusterInfo(final_eps, final_mu);
     
     free(edgeArray);
     return 0;
