@@ -41,6 +41,10 @@ DynamicStrClu_ours.exe -graph ../datasets/graphs/soc -update ../datasets/updates
   - DTBucket.cpp/h: Bucket structure implementation for organizing DT instances
   - DTInstance.cpp/h: DT instance class for tracking edge update tolerance
   - DTManager.cpp/h: Manager class for all DT instances
+- graph/: Directory containing graph data structures and algorithms
+  - Graph.cpp/h: Main graph class that manages vertices and handles edge insertions and deletions
+  - Vertex.cpp/h: Vertex class that maintains neighbor lists and similarity scores
+  - Jaccard.cpp/h: Jaccard similarity computation implementation using sampling for large vertices
 - MyLib/: Utility library directory
 - Tessil_robin_map/: Third-party hash map library for efficient key-value storage
 - evalution.py: Python script for evaluating algorithm results
