@@ -47,6 +47,12 @@ DynamicStrClu_ours.exe -graph ../datasets/graphs/soc -update ../datasets/updates
   - Jaccard.cpp/h: Jaccard similarity computation implementation using sampling for large vertices
 - MyLib/: Utility library directory
 - Tessil_robin_map/: Third-party hash map library for efficient key-value storage
+- datasets/: Directory containing four datasets for our experiments
+  - process4.py: Preprocess public network dataset to get graph and update data
+  - graphs/: Directory containing all graphs information
+  - updates/: Directory containing all updates information
+- results/: Directory containing all clustering results by our experiments
+  - draw.py: Draw a figure of average update and query time to compare performance between our code and original code
 - evalution.py: Python script for evaluating algorithm results
 - VD-STAR_tr.pdf: Original paper describing the VD-STAR algorithm
 
