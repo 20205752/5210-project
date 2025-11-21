@@ -1,6 +1,6 @@
-# DV-STAR reproduction
+# VD-STAR reproduction
 
-**Description**: This is the reproduction of DV-STAR
+**Description**: This is the reproduction of VD-STAR
 
 ## Environment Requirements
 
