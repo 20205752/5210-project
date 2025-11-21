@@ -58,3 +58,6 @@ python evalution.py
 ```
 Modify the file paths in the script to point to your ground truth and prediction result files. The script outputs ARI and MLR metrics to measure clustering quality.
 
+## Reference
+
+Original repository: https://github.com/alvinzhaowei/VD-STAR
